@@ -120,7 +120,6 @@
     <div class="card" id="doneCard" style="display:none">
       <div class="done"><div class="big">🍿</div><h2>제출 완료!</h2>
         <p id="doneText">신청이 저장되었어요.</p>
-        <button class="btn ghost" id="againBtn">다시 신청 / 수정하기</button></div>
     </div>
   </section>
 
@@ -219,10 +218,6 @@ document.getElementById('submitBtn').onclick=async()=>{
   document.getElementById('formCard').style.display='none';
   document.getElementById('doneCard').style.display='block';
   document.getElementById('doneText').textContent=`${ban}반 ${beonho}번 ${name} 신청이 저장되었어요. 결과는 선생님이 안내해 줄 거예요.`;
-};
-document.getElementById('againBtn').onclick=()=>{
-  document.getElementById('doneCard').style.display='none'; document.getElementById('formCard').style.display='block';
-  document.querySelectorAll('.pick').forEach(s=>s.value=''); document.getElementById('beonho').value=''; document.getElementById('name').value='';
 };
 
 /* ===================== TEACHER gate ===================== */
