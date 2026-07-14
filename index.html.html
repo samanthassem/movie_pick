@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>영화 관람 신청</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --ink:#141527; --midnight:#1b1d3a; --amber:#f2b134; --amber-deep:#d98a1f;
+    --paper:#fbf8f2; --paper-2:#f2ece0; --line:#d9d2c4; --muted:#6c6a7a;
+    --good:#2f9e6f; --warn:#c9522f; --violet:#5a4fcf; --blue:#4a90d9;
+    --shadow:0 10px 30px rgba(20,21,39,.10);
+  }
+  *{box-sizing:border-box}
+  body{margin:0; font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+    color:var(--ink); background:var(--paper);
+    background-image:radial-gradient(circle at 12% 0%,rgba(90,79,207,.06),transparent 40%),
+                     radial-gradient(circle at 90% 8%,rgba(242,177,52,.10),transparent 42%); line-height:1.5}
+  header.marquee{background:var(--midnight); color:var(--paper); padding:22px 20px 20px; position:relative; overflow:hidden; border-bottom:4px solid var(--amber)}
+  header.marquee::before{content:""; position:absolute; inset:0 0 auto 0; height:6px;
+    background:repeating-linear-gradient(90deg,var(--amber) 0 14px,transparent 14px 28px); opacity:.5}
+  .wrap{max-width:960px; margin:0 auto; padding:0 20px}
+  h1{margin:0; font-size:23px; letter-spacing:-.5px; display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+  h1 .tix{font-size:13px; background:var(--amber); color:var(--ink); padding:2px 9px; border-radius:20px; font-weight:800}
+  header p{margin:6px 0 0; color:#b9b7d6; font-size:13px}
+  header .teacher-link{position:absolute; top:18px; right:20px; background:rgba(255,255,255,.12); color:#fff;
+    border:1px solid rgba(255,255,255,.25); padding:6px 12px; border-radius:8px; font-size:12.5px; cursor:pointer; font-weight:700}
+  main{max-width:960px; margin:0 auto; padding:24px 20px 60px}
+  .card{background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:22px; box-shadow:var(--shadow); margin-bottom:18px}
+  .card h2{margin:0 0 4px; font-size:18px}
+  .card .sub{color:var(--muted); font-size:13px; margin:0 0 18px}
+  label{display:block; font-weight:700; font-size:13px; margin:0 0 5px}
+  input,select{width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:9px; font-size:15px; background:#fff; font-family:inherit; color:var(--ink)}
+  input:focus,select:focus{outline:2px solid var(--amber); border-color:var(--amber)}
+  .row{display:grid; grid-template-columns:1fr 1fr 1.4fr; gap:12px; margin-bottom:14px}
+  .choices{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px; margin:6px 0}
+  .choice{position:relative}
+  .choice .badge{position:absolute; top:-8px; left:10px; background:var(--violet); color:#fff; font-size:11px; font-weight:800; padding:1px 8px; border-radius:20px}
+  .btn{border:0; border-radius:10px; padding:12px 20px; font-weight:800; font-size:15px; cursor:pointer; font-family:inherit}
+  .btn.primary{background:var(--amber); color:var(--ink)} .btn.primary:hover{background:var(--amber-deep)}
+  .btn.dark{background:var(--midnight); color:#fff}
+  .btn.ghost{background:transparent; border:1px solid var(--line); color:var(--ink); font-weight:700}
+  .btn.small{padding:7px 12px; font-size:13px}
+  .btn:disabled{opacity:.5; cursor:not-allowed}
+  .actions{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:6px}
+  .hint{font-size:12.5px; color:var(--muted); margin-top:10px}
+  .msg{padding:11px 13px; border-radius:9px; font-size:13.5px; font-weight:600; margin-top:14px; display:none}
+  .msg.ok{background:#e6f4ee; color:var(--good); display:block}
+  .msg.err{background:#fbe9e3; color:var(--warn); display:block}
+  .done{text-align:center; padding:34px 16px}
+  .done .big{font-size:52px} .done h2{margin:12px 0 6px} .done p{color:var(--muted); margin:0 0 20px}
+  table{width:100%; border-collapse:collapse; font-size:13.5px}
+  th,td{padding:8px 10px; text-align:left; border-bottom:1px solid var(--line)}
+  th{background:var(--paper-2); font-size:12px; letter-spacing:.4px; color:var(--muted)}
+  .del{color:var(--warn); background:none; border:0; cursor:pointer; font-weight:700; font-size:13px}
+  .toolbar{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px; align-items:center}
+  .count-pill{background:var(--midnight); color:#fff; padding:5px 12px; border-radius:20px; font-size:13px; font-weight:700}
+  .stats{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:18px}
+  .stat{flex:1; min-width:96px; background:var(--paper-2); border:1px solid var(--line); border-radius:11px; padding:12px; text-align:center}
+  .stat b{display:block; font-size:24px; line-height:1.1} .stat span{font-size:12px; color:var(--muted); font-weight:700}
+  /* per-class control */
+  .clsrow{display:flex; align-items:center; gap:12px; padding:12px 14px; border:1px solid var(--line); border-radius:11px; background:#fff; margin-bottom:10px; flex-wrap:wrap}
+  .clsrow .who{font-weight:800; font-size:16px}
+  .clsrow .meta{color:var(--muted); font-size:13px}
+  .badge-status{font-size:12px; font-weight:800; padding:3px 10px; border-radius:20px}
+  .st-wait{background:#f2ece0; color:var(--muted)} .st-done{background:#e6f4ee; color:var(--good)}
+  .clsrow .spacer{flex:1}
+  /* result views */
+  .viewtoggle{display:flex; gap:8px; margin-bottom:16px}
+  .vbtn{border:1px solid var(--line); background:#fff; color:var(--muted); padding:9px 16px; border-radius:10px; cursor:pointer; font-weight:800; font-size:14px}
+  .vbtn.active{background:var(--amber); color:var(--ink); border-color:var(--amber)}
+  .movie-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:14px}
+  .movie{border:1px solid var(--line); border-radius:12px; overflow:hidden; background:#fff}
+  .movie .ttl{background:var(--midnight); color:#fff; padding:9px 12px; font-weight:800; font-size:14px; display:flex; justify-content:space-between; align-items:center}
+  .movie .cap{font-size:11px; background:var(--amber); color:var(--ink); padding:1px 8px; border-radius:20px; font-weight:800}
+  .movie .cap.full{background:#e2ddd0; color:var(--muted)}
+  .movie table{font-size:13px} .movie td,.movie th{padding:6px 10px}
+  .rk{font-size:11px; color:#fff; padding:1px 7px; border-radius:10px; font-weight:800}
+  .rk1{background:var(--good)} .rk2{background:var(--blue)} .rk3{background:var(--violet)} .rk4,.rk5,.rk6,.rk7{background:#8a86a0} .rk0{background:var(--warn)} .rkx{background:var(--warn)}
+  details{border:1px solid var(--line); border-radius:10px; margin-bottom:10px; background:#fff}
+  summary{padding:10px 14px; font-weight:800; cursor:pointer} details table{margin:0}
+  .empty-state{text-align:center; color:var(--muted); padding:40px 10px}
+  .legend{font-size:12px; color:var(--muted); margin:14px 0 0; display:flex; gap:14px; flex-wrap:wrap}
+  .legend span{display:inline-flex; align-items:center; gap:5px} .dot{width:12px; height:12px; border-radius:50%; display:inline-block}
+  .tabs{display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap}
+  .tab{border:1px solid var(--line); background:var(--paper-2); color:var(--muted); padding:9px 16px; border-radius:10px; cursor:pointer; font-weight:700; font-size:14px}
+  .tab.active{background:var(--midnight); color:#fff; border-color:var(--midnight)}
+  .lock{max-width:380px; margin:40px auto; text-align:center} .lock .ico{font-size:40px}
+  .banner{background:#fff4dc; border:1px solid var(--amber); color:#7a5a10; padding:10px 14px; border-radius:9px; font-size:12.5px; margin-bottom:16px}
+  @media(max-width:620px){ .row{grid-template-columns:1fr 1fr} .row .full{grid-column:1/-1} header .teacher-link{position:static; display:inline-block; margin-top:10px} }
+  @media print{ header,.tabs,.toolbar,.actions,.btn,.vbtn,.viewtoggle .vbtn:not(.active),.teacher-link,.clsrow,.no-print{display:none!important} .viewtoggle{display:none} body{background:#fff} .card{box-shadow:none} }
+</style>
+</head>
+<body>
+<header class="marquee">
+  <div class="wrap">
+    <h1><span class="tix">🎬 NOW SHOWING</span> 영화 관람 신청</h1>
+    <p>보고 싶은 영화를 1지망부터 순서대로 골라 제출하세요.</p>
+    <button class="teacher-link" id="teacherBtn">🔒 교사 모드</button>
+  </div>
+</header>
+
+<main>
+  <!-- ============ STUDENT VIEW ============ -->
+  <section id="studentView">
+    <div class="card" id="formCard">
+      <h2>희망 영화 신청</h2>
+      <p class="sub">반·번호를 정확히 입력하고, 서로 다른 영화로 1~5지망을 선택하세요.</p>
+      <div class="row">
+        <div><label>학년</label><input id="grade" value="5" readonly></div>
+        <div><label>반</label><input id="ban" type="number" min="1" placeholder="예: 3"></div>
+        <div class="full"><label>번호</label><input id="beonho" type="number" min="1" placeholder="예: 12"></div>
+      </div>
+      <div class="row" style="grid-template-columns:1fr"><div class="full"><label>이름</label><input id="name" placeholder="이름"></div></div>
+      <div class="choices" id="choiceGrid"></div>
+      <div class="actions"><button class="btn primary" id="submitBtn" style="width:100%">🎟️ 제출하기</button></div>
+      <div class="msg" id="studentMsg"></div>
+    </div>
+    <div class="card" id="doneCard" style="display:none">
+      <div class="done"><div class="big">🍿</div><h2>제출 완료!</h2>
+        <p id="doneText">신청이 저장되었어요.</p>
+        <button class="btn ghost" id="againBtn">다시 신청 / 수정하기</button></div>
+    </div>
+  </section>
+
+  <!-- ============ TEACHER LOCK ============ -->
+  <section id="lockView" style="display:none">
+    <div class="card lock"><div class="ico">🔒</div>
+      <h2 style="margin:10px 0 4px">교사 모드</h2>
+      <p class="sub">비밀번호를 입력하면 명단·배정·결과를 볼 수 있습니다.</p>
+      <input id="pw" type="password" placeholder="비밀번호" style="margin-bottom:12px">
+      <button class="btn dark" id="pwBtn" style="width:100%">열기</button>
+      <button class="btn ghost small" id="backToStudent" style="width:100%; margin-top:10px">← 학생 화면으로</button>
+      <div class="msg" id="lockMsg"></div>
+    </div>
+  </section>
+
+  <!-- ============ TEACHER DASHBOARD ============ -->
+  <section id="adminView" style="display:none">
+    <div class="banner">🔒 교사 모드 · 이 화면은 학생에게 보이지 않게 관리하세요. <a href="#" id="logout" style="color:#7a5a10; font-weight:800">잠그기</a></div>
+    <div class="tabs">
+      <button class="tab active" data-tab="tData">명단 관리</button>
+      <button class="tab" data-tab="tRun">배정 실행</button>
+      <button class="tab" data-tab="tResult">결과 보기</button>
+    </div>
+
+    <section id="tData" class="apane">
+      <div class="card">
+        <h2>수집된 신청 <span class="count-pill" id="countPill">0명</span></h2>
+        <div class="toolbar">
+          <button class="btn dark small" id="refreshBtn">🔄 새로고침</button>
+          <button class="btn ghost small" id="exportBtn">📤 명단 CSV</button>
+          <button class="btn ghost small" id="clearAll" style="color:var(--warn)">전체 삭제</button>
+        </div>
+        <div id="dataTableWrap"><div class="empty-state">아직 신청이 없습니다.</div></div>
+      </div>
+    </section>
+
+    <section id="tRun" class="apane" style="display:none">
+      <div class="card no-print">
+        <h2>반별 배정 실행</h2>
+        <p class="sub">반 입력이 끝난 뒤, 원하는 반의 <b>배정 시작</b>을 누르면 그 반만 배정됩니다. 영화당 정원은 <b>4명 고정</b>이에요.</p>
+        <div class="row" style="grid-template-columns:1.4fr 1fr; max-width:520px">
+          <div><label>추첨 시드 (선택)</label><input id="seed" placeholder="비우면 랜덤 · 같은 값이면 재현"></div>
+          <div style="display:flex; align-items:end"><button class="btn ghost small" id="reloadRun" style="width:100%">반 목록 새로고침</button></div>
+        </div>
+        <div id="classControls" style="margin-top:8px"></div>
+        <div class="msg" id="runMsg"></div>
+      </div>
+    </section>
+
+    <section id="tResult" class="apane" style="display:none">
+      <div id="results"><div class="card"><div class="empty-state">배정을 실행하면 결과가 여기 표시됩니다.</div></div></div>
+    </section>
+  </section>
+</main>
+
+<script>
+/* ===================== 설정 (여기 3줄만 바꾸면 됩니다) ===================== */
+const SUPABASE_URL = "https://supabase.com/dashboard/project/jdvotoiyvaryakfhtkel/settings/api-keys";
+const SUPABASE_ANON_KEY = "sb_publishable_lxClzirViAe64L-S1XlgAA_USBrxjJW";
+const TEACHER_PASSWORD = "2026hb";
+/* ======================================================================== */
+
+const MOVIES = ["라따뚜이","귀를 기울이면","굿 다이노","박물관이 살아있다","빅히어로","아이엠 셈","주토피아2"];
+const NUM_CHOICES = 5;        // 지망 개수
+const CAP = 4;                // 영화 1편당 정원 (반별) — 고정
+const TABLE = "movie_requests";
+
+let sb=null, configured=false;
+try{ if(!SUPABASE_URL.includes("여기에")&&!SUPABASE_ANON_KEY.includes("여기에")){ sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY); configured=true; } }catch(e){}
+let students=[], resultView='class';
+
+/* build dropdowns */
+(function(){ const g=document.getElementById('choiceGrid');
+  for(let i=1;i<=NUM_CHOICES;i++){ const opts=MOVIES.map(m=>`<option value="${m}">${m}</option>`).join('');
+    const d=document.createElement('div'); d.className='choice';
+    d.innerHTML=`<span class="badge">${i}지망</span><select class="pick"><option value="">— 선택 —</option>${opts}</select>`; g.appendChild(d);} })();
+function show(el,t,txt){ el.className='msg '+(t==='ok'?'ok':'err'); el.textContent=txt; }
+function clearMsg(el){ el.className='msg'; }
+
+/* ===================== STUDENT ===================== */
+document.getElementById('submitBtn').onclick=async()=>{
+  const msg=document.getElementById('studentMsg');
+  const ban=+document.getElementById('ban').value, beonho=+document.getElementById('beonho').value;
+  const name=document.getElementById('name').value.trim();
+  const picks=[...document.querySelectorAll('.pick')].map(s=>s.value).filter(Boolean);
+  if(!ban||!beonho) return show(msg,'err','반과 번호를 입력하세요.');
+  if(!name) return show(msg,'err','이름을 입력하세요.');
+  if(!picks.length) return show(msg,'err','최소 1지망은 선택해야 합니다.');
+  if(new Set(picks).size!==picks.length) return show(msg,'err','지망이 중복됐어요. 서로 다른 영화로 선택하세요.');
+  if(!configured) return show(msg,'err','앱이 서버에 연결되지 않았습니다. 선생님께 알려주세요.');
+  const btn=document.getElementById('submitBtn'); btn.disabled=true; btn.textContent='제출 중…';
+  const {error}=await sb.from(TABLE).upsert({ban,beonho,name,choices:picks,assigned_movie:null,assigned_rank:null},{onConflict:'ban,beonho'});
+  btn.disabled=false; btn.textContent='🎟️ 제출하기';
+  if(error) return show(msg,'err','제출 실패: '+error.message);
+  clearMsg(msg);
+  document.getElementById('formCard').style.display='none';
+  document.getElementById('doneCard').style.display='block';
+  document.getElementById('doneText').textContent=`${ban}반 ${beonho}번 ${name} 신청이 저장되었어요. 결과는 선생님이 안내해 줄 거예요.`;
+};
+document.getElementById('againBtn').onclick=()=>{
+  document.getElementById('doneCard').style.display='none'; document.getElementById('formCard').style.display='block';
+  document.querySelectorAll('.pick').forEach(s=>s.value=''); document.getElementById('beonho').value=''; document.getElementById('name').value='';
+};
+
+/* ===================== TEACHER gate ===================== */
+document.getElementById('teacherBtn').onclick=()=>swap('lockView');
+document.getElementById('backToStudent').onclick=()=>swap('studentView');
+document.getElementById('pwBtn').onclick=tryUnlock;
+document.getElementById('pw').addEventListener('keydown',e=>{if(e.key==='Enter')tryUnlock();});
+function tryUnlock(){ const v=document.getElementById('pw').value, lm=document.getElementById('lockMsg');
+  if(v===TEACHER_PASSWORD){ document.getElementById('pw').value=''; clearMsg(lm); swap('adminView'); loadData(); }
+  else show(lm,'err','비밀번호가 올바르지 않습니다.'); }
+document.getElementById('logout').onclick=e=>{e.preventDefault(); swap('studentView');};
+function swap(id){ ['studentView','lockView','adminView'].forEach(v=>document.getElementById(v).style.display=v===id?'block':'none'); }
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active')); t.classList.add('active');
+  document.querySelectorAll('.apane').forEach(p=>p.style.display='none'); document.getElementById(t.dataset.tab).style.display='block';
+  if(t.dataset.tab==='tRun') renderControls(); if(t.dataset.tab==='tResult') renderResults();
+});
+
+/* ===================== data ===================== */
+document.getElementById('refreshBtn').onclick=loadData;
+document.getElementById('reloadRun').onclick=async()=>{ await loadData(); renderControls(); };
+async function loadData(){
+  if(!configured){ document.getElementById('dataTableWrap').innerHTML='<div class="empty-state">서버 미설정. 코드 상단 SUPABASE 설정을 확인하세요.</div>'; return; }
+  const {data,error}=await sb.from(TABLE).select('*').order('ban').order('beonho');
+  if(error){ document.getElementById('dataTableWrap').innerHTML='<div class="empty-state">불러오기 실패: '+error.message+'</div>'; return; }
+  students=(data||[]).map(r=>({ban:r.ban,beonho:r.beonho,name:r.name||'',choices:r.choices||[],
+    assigned_movie:r.assigned_movie??null, assigned_rank:(r.assigned_rank===null||r.assigned_rank===undefined)?null:r.assigned_rank}));
+  renderTable(); renderControls(); renderResults();
+}
+function renderTable(){
+  document.getElementById('countPill').textContent=students.length+'명';
+  const wrap=document.getElementById('dataTableWrap');
+  if(!students.length){ wrap.innerHTML='<div class="empty-state">아직 신청이 없습니다.</div>'; return; }
+  const maxc=Math.max(...students.map(s=>s.choices.length));
+  const head='<tr><th>반</th><th>번호</th><th>이름</th>'+Array.from({length:maxc},(_,i)=>`<th>${i+1}지망</th>`).join('')+'<th></th></tr>';
+  const rows=students.map(s=>{ const cells=Array.from({length:maxc},(_,i)=>`<td>${s.choices[i]||''}</td>`).join('');
+    return `<tr><td>${s.ban}</td><td>${s.beonho}</td><td>${s.name||'-'}</td>${cells}
+      <td style="text-align:right"><button class="del" data-b="${s.ban}" data-n="${s.beonho}">삭제</button></td></tr>`; }).join('');
+  wrap.innerHTML=`<div style="overflow:auto"><table><thead>${head}</thead><tbody>${rows}</tbody></table></div>`;
+  wrap.querySelectorAll('.del').forEach(btn=>btn.onclick=async()=>{
+    if(!confirm(`${btn.dataset.b}반 ${btn.dataset.n}번을 삭제할까요?`)) return;
+    await sb.from(TABLE).delete().match({ban:+btn.dataset.b,beonho:+btn.dataset.n}); loadData(); });
+}
+document.getElementById('clearAll').onclick=async()=>{ if(!confirm('모든 신청을 삭제할까요?')) return; await sb.from(TABLE).delete().neq('ban',-999); loadData(); };
+document.getElementById('exportBtn').onclick=()=>{
+  if(!students.length) return alert('내보낼 명단이 없습니다.');
+  const maxc=Math.max(...students.map(s=>s.choices.length));
+  const head=['반','번호','이름',...Array.from({length:maxc},(_,i)=>`${i+1}지망`)];
+  const lines=[head.join(',')];
+  students.forEach(s=>lines.push([s.ban,s.beonho,s.name||'',...Array.from({length:maxc},(_,i)=>s.choices[i]||'')].map(csvCell).join(',')));
+  downloadCSV(lines.join('\n'),'영화희망_명단.csv'); };
+function csvCell(v){ v=String(v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }
+function downloadCSV(c,f){ const b=new Blob(['\uFEFF'+c],{type:'text/csv;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=f; a.click(); }
+
+/* ===================== assignment ===================== */
+function makeRng(s){ if(!s) return Math.random; let h=1779033703^s.length;
+  for(let i=0;i<s.length;i++){h=Math.imul(h^s.charCodeAt(i),3432918353);h=h<<13|h>>>19;} let a=h>>>0;
+  return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function shuffle(arr,rng){const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+function assignClass(list,rng){
+  const count={}; MOVIES.forEach(m=>count[m]=0); const assigned={}; const remaining=new Set(list.map(s=>s.beonho));
+  const by={}; list.forEach(s=>by[s.beonho]=s); const maxRank=Math.max(...list.map(s=>s.choices.length));
+  for(let rank=0;rank<maxRank;rank++){
+    // 이번 지망(rank)에서 각 영화 지원자 모으기
+    const apps={};
+    for(const b of remaining){ const mv=by[b].choices[rank]; if(!mv||count[mv]>=CAP) continue; (apps[mv]=apps[mv]||[]).push(b); }
+    // 인기 많은 영화(지원자 많은 순)부터 배정
+    Object.keys(apps).sort((a,b)=>apps[b].length-apps[a].length).forEach(mv=>{
+      const slots=CAP-count[mv], cand=apps[mv];
+      const win = cand.length<=slots ? cand : shuffle(cand,rng).slice(0,slots);   // 초과 시 랜덤 추첨
+      win.forEach(b=>{ assigned[b]={movie:mv,rank:rank+1}; count[mv]++; remaining.delete(b); });  // 탈락자는 remaining에 남아 다음 지망으로
+    });
+  }
+  for(const b of [...remaining]){ const open=MOVIES.find(m=>count[m]<CAP);
+    if(open){assigned[b]={movie:open,rank:0};count[open]++;remaining.delete(b);} else assigned[b]={movie:null,rank:-1}; }
+  return {assigned,count};
+}
+
+async function assignBan(ban){
+  const list=students.filter(s=>s.ban===ban);
+  if(!list.length) return;
+  const already=list.every(s=>s.assigned_rank!==null);
+  if(already && !confirm(`${ban}반은 이미 배정되어 있어요. 다시 추첨하면 기존 결과가 사라집니다. 진행할까요?`)) return;
+  const seed=document.getElementById('seed').value.trim();
+  const rng=makeRng(seed?(seed+'-'+ban):'');
+  const {assigned}=assignClass(list,rng);
+  const rows=list.map(s=>({ban:s.ban,beonho:s.beonho,name:s.name,choices:s.choices,
+    assigned_movie:assigned[s.beonho].movie, assigned_rank:assigned[s.beonho].rank}));
+  const btnId='runbtn-'+ban; const btn=document.getElementById(btnId); if(btn){btn.disabled=true;btn.textContent='배정 중…';}
+  const {error}=await sb.from(TABLE).upsert(rows,{onConflict:'ban,beonho'});
+  if(error){ show(document.getElementById('runMsg'),'err',ban+'반 저장 실패: '+error.message); if(btn){btn.disabled=false;} return; }
+  await loadData();
+  show(document.getElementById('runMsg'),'ok',`${ban}반 배정 완료! "결과 보기" 탭에서 확인하세요.`);
+}
+
+function renderControls(){
+  const box=document.getElementById('classControls'); if(!box) return;
+  const bans=[...new Set(students.map(s=>s.ban))].sort((a,b)=>a-b);
+  if(!bans.length){ box.innerHTML='<div class="empty-state">신청된 반이 없습니다.</div>'; return; }
+  box.innerHTML=bans.map(ban=>{
+    const list=students.filter(s=>s.ban===ban);
+    const done=list.every(s=>s.assigned_rank!==null);
+    const over=list.length>MOVIES.length*CAP;
+    return `<div class="clsrow">
+      <span class="who">${ban}반</span>
+      <span class="meta">신청 ${list.length}명${over?` · ⚠ 정원 초과(최대 ${MOVIES.length*CAP})`:''}</span>
+      <span class="badge-status ${done?'st-done':'st-wait'}">${done?'✓ 배정 완료':'배정 대기'}</span>
+      <span class="spacer"></span>
+      <button class="btn ${done?'ghost':'primary'} small" id="runbtn-${ban}" data-ban="${ban}">${done?'🔄 재배정':`🎟️ ${ban}반 배정 시작!`}</button>
+    </div>`;
+  }).join('');
+  box.querySelectorAll('button[data-ban]').forEach(b=>b.onclick=()=>assignBan(+b.dataset.ban));
+}
+
+/* ===================== results (2 views) ===================== */
+function renderResults(){
+  const box=document.getElementById('results');
+  const done=students.filter(s=>s.assigned_rank!==null);
+  if(!done.length){ box.innerHTML='<div class="card"><div class="empty-state">아직 배정된 반이 없습니다. <b>배정 실행</b> 탭에서 반별로 배정을 시작하세요.</div></div>'; return; }
+  // stats
+  const tally={}; for(let i=0;i<=7;i++)tally[i]=0; let un=0;
+  done.forEach(s=>{ s.assigned_rank===-1?un++:tally[s.assigned_rank]++; });
+  const total=done.length, pct=total?Math.round(tally[1]/total*100):0;
+  const stat=(n,l)=>`<div class="stat"><b>${n}</b><span>${l}</span></div>`;
+  const statsHTML=`<div class="stats">${stat(total,'배정 인원')}${stat(tally[1],'1지망')}${stat(tally[2]+tally[3],'2~3지망')}${stat(Object.entries(tally).filter(([k])=>+k>=4).reduce((a,[,v])=>a+v,0),'4지망↓')}${stat(tally[0],'지망 외')}${stat(un,'미배정')}</div>`;
+  const toggle=`<div class="viewtoggle no-print">
+    <button class="vbtn ${resultView==='class'?'active':''}" onclick="setView('class')">🏫 반별 보기</button>
+    <button class="vbtn ${resultView==='movie'?'active':''}" onclick="setView('movie')">🎬 영화별 보기</button></div>`;
+  const body = resultView==='class' ? viewByClass(done) : viewByMovie(done);
+  const legend=`<p class="legend"><span><i class="dot" style="background:var(--good)"></i>1지망</span><span><i class="dot" style="background:var(--blue)"></i>2지망</span><span><i class="dot" style="background:var(--violet)"></i>3지망</span><span><i class="dot" style="background:#8a86a0"></i>4지망~</span><span><i class="dot" style="background:var(--warn)"></i>지망외/미배정</span></p>`;
+  const dl=`<div class="card no-print"><h2>결과 저장</h2><div class="actions"><button class="btn primary" onclick="downloadResult()">📥 결과 CSV</button><button class="btn ghost" onclick="window.print()">🖨️ 인쇄/PDF</button></div></div>`;
+  box.innerHTML=`<div class="card"><h2>📊 배정 요약 <span class="count-pill">${pct}% 1지망 충족</span></h2>${statsHTML}${toggle}</div>${body}<div class="card">${legend}</div>${dl}`;
+}
+function setView(v){ resultView=v; renderResults(); }
+function rkTag(rk){ const lbl=rk===-1?'미배정':(rk===0?'지망외':rk+'지망'); const cls=rk===-1?'rkx':'rk'+rk; return `<span class="rk ${cls}">${lbl}</span>`; }
+
+/* 1) 반별 보기: 영화 · 번호 · 이름 (반 = 섹션) */
+function viewByClass(done){
+  const bans=[...new Set(done.map(s=>s.ban))].sort((a,b)=>a-b);
+  let html='<div class="card"><h2>🏫 반별 배정표</h2><p class="sub">반 → 영화 순으로 정리됩니다.</p>';
+  bans.forEach(ban=>{
+    const list=done.filter(s=>s.ban===ban).sort((a,b)=>{
+      const ia=a.assigned_movie?MOVIES.indexOf(a.assigned_movie):99, ib=b.assigned_movie?MOVIES.indexOf(b.assigned_movie):99;
+      return ia-ib || a.beonho-b.beonho; });
+    const rows=list.map(s=>`<tr><td><b>${s.assigned_movie||'—'}</b></td><td>${s.beonho}</td><td>${s.name||'-'}</td><td>${rkTag(s.assigned_rank)}</td></tr>`).join('');
+    html+=`<details open><summary>${ban}반 (${list.length}명)</summary>
+      <table><thead><tr><th>영화</th><th>번호</th><th>이름</th><th>지망</th></tr></thead><tbody>${rows}</tbody></table></details>`;
+  });
+  return html+'</div>';
+}
+/* 2) 영화별 보기: 반 · 번호 · 이름 (영화 = 섹션, 전체 반 취합) */
+function viewByMovie(done){
+  let html='<div class="card"><h2>🎬 영화별 배정표</h2><p class="sub">영화별로 전체 반을 모아 보여줍니다.</p><div class="movie-grid">';
+  MOVIES.forEach(mv=>{
+    const mem=done.filter(s=>s.assigned_movie===mv).sort((a,b)=>a.ban-b.ban||a.beonho-b.beonho);
+    if(!mem.length) return;
+    const rows=mem.map(s=>`<tr><td>${s.ban}반</td><td>${s.beonho}</td><td>${s.name||'-'}</td><td>${rkTag(s.assigned_rank)}</td></tr>`).join('');
+    html+=`<div class="movie"><div class="ttl">${mv}<span class="cap">${mem.length}명</span></div>
+      <table><thead><tr><th>반</th><th>번호</th><th>이름</th><th>지망</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  });
+  const unassigned=done.filter(s=>s.assigned_rank===-1);
+  html+='</div>';
+  if(unassigned.length){ html+=`<p class="hint" style="color:var(--warn)">⚠ 미배정 ${unassigned.length}명: ${unassigned.map(s=>s.ban+'반 '+s.beonho+'번').join(', ')}</p>`; }
+  return html+'</div>';
+}
+function downloadResult(){
+  const done=students.filter(s=>s.assigned_rank!==null);
+  if(!done.length) return alert('배정 결과가 없습니다.');
+  const lines=['반,번호,이름,배정영화,지망'];
+  [...done].sort((a,b)=>a.ban-b.ban||a.beonho-b.beonho).forEach(s=>{
+    const rk=s.assigned_rank===-1?'미배정':(s.assigned_rank===0?'지망외':s.assigned_rank+'지망');
+    lines.push([s.ban,s.beonho,s.name||'',s.assigned_movie||'',rk].map(csvCell).join(','));});
+  downloadCSV(lines.join('\n'),'영화배정_결과.csv');
+}
+</script>
+</body>
+</html>
